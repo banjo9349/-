@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f97316">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
 <title>ปรับสัดส่วนสูตรอาหาร</title>
 <style>
 :root {
@@ -83,15 +87,33 @@ textarea { width: 100%; padding: 11px 12px; border: 1.5px solid var(--line); bor
 .toast.on { opacity: 1; }
 pre { background: var(--field); padding: 10px; border-radius: 10px; font-size: 12px; overflow-x: auto; user-select: all; }
 ol { padding-left: 20px; line-height: 1.7; margin: 8px 0; }
+
+body { padding-bottom: calc(86px + env(safe-area-inset-bottom)) !important; }
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; gap: 6px; max-width: 560px; margin: auto; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: var(--card); box-shadow: 0 -4px 16px rgba(0,0,0,.1); border-radius: 20px 20px 0 0; }
+.tabbar button { flex: 1; border: none; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; padding: 8px 4px; border-radius: 14px; }
+.tabbar button span { display: block; font-size: 22px; }
+.tabbar button.on { background: var(--accent-soft); color: var(--accent); }
+.toast { bottom: calc(90px + env(safe-area-inset-bottom)) !important; }
+.srow { display: grid; grid-template-columns: 1.5fr .8fr .8fr .8fr 32px; gap: 5px; align-items: center; padding: 3px 0; }
+.srow input { padding: 9px 5px; min-width: 0; font-size: 14px; }
+.srow .q, .srow .p { text-align: right; font-weight: 600; }
+.srow.low .q { background: #fee2e2; border-color: transparent; color: #dc2626; }
+.shead { font-size: 11.5px; font-weight: 700; color: var(--muted); text-align: center; }
+.ord { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px dashed var(--line); font-size: 14px; }
+.ord small { display: block; color: var(--muted); font-size: 12px; }
+.ord b { color: #dc2626; white-space: nowrap; }
+.ord button { border: none; background: var(--green); color: #fff; border-radius: 10px; padding: 8px 10px; font-size: 12px; font-weight: 700; }
+.okbox { text-align: center; color: var(--green); padding: 16px 0; font-size: 14px; font-weight: 700; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>🍳 ปรับสัดส่วนสูตร</h1>
-  <p>พิมพ์เลขช่องเดียว ที่เหลือคำนวณให้ทันที</p>
+  <h1 id="hd-title">🍳 ปรับสัดส่วนสูตร</h1>
+  <p id="hd-sub">พิมพ์เลขช่องเดียว ที่เหลือคำนวณให้ทันที</p>
   <span class="chip" id="syncchip" onclick="openSync()">⚪ ไม่ได้ซิงค์ทีม</span>
 </header>
+<div id="pg-recipe">
 
 <div class="card">
   <h3>📂 สูตรที่บันทึกไว้</h3>
@@ -116,6 +138,33 @@ ol { padding-left: 20px; line-height: 1.7; margin: 8px 0; }
   <p class="hint">ชื่อวัตถุดิบใส่ทีหลังได้ · บันทึกซ้ำชื่อเดิมเพื่ออัปเดต<br>ปริมาณช่องขวาที่ปรับล่าสุดจะถูกจำไว้ แก้ไขได้ตลอดเวลา</p>
 </div>
 
+
+</div>
+<div id="pg-stock" style="display:none">
+  <div class="card">
+    <h3>📦 สต๊อกวัตถุดิบ</h3>
+    <div class="srow shead"><div>ชื่อ</div><div>คงเหลือ</div><div>ควรมี</div><div>หน่วย</div><div></div></div>
+    <div id="stlist"></div>
+    <div class="btns">
+      <button class="b add" onclick="addStock()">+ เพิ่มรายการ</button>
+      <button class="b ghost" onclick="importFromRecipes()">ดึงชื่อจากสูตร</button>
+    </div>
+    <p class="hint">กรอก "คงเหลือ" ตามที่นับได้จริง และ "ควรมี" คือปริมาณที่ต้องมีในร้าน ถ้าคงเหลือน้อยกว่าควรมี ระบบจะขึ้นรายการสั่งให้</p>
+  </div>
+  <div class="card">
+    <h3>🛒 ต้องสั่งเพิ่ม <span id="ordn"></span></h3>
+    <div id="orderlist"></div>
+    <div class="btns">
+      <button class="b save" onclick="copyOrder()">📋 คัดลอกรายการสั่ง</button>
+      <button class="b ghost" onclick="shareOrder()">📤 แชร์</button>
+    </div>
+  </div>
+  <datalist id="units"><option value="กก."><option value="กรัม"><option value="ลิตร"><option value="มล."><option value="ชิ้น"><option value="ถุง"><option value="ขวด"><option value="แพ็ค"><option value="กล่อง"><option value="ฟอง"></datalist>
+</div>
+<nav class="tabbar">
+  <button id="tab-recipe" class="on" onclick="showTab('recipe')"><span>🍳</span>ปรับสูตร</button>
+  <button id="tab-stock" onclick="showTab('stock')"><span>📦</span>สต๊อก</button>
+</nav>
 
 <div class="ov" id="ov"><div class="ov-in">
   <div class="ov-top"><h2>📷 สแกนสูตรจากรูป</h2><button class="x" onclick="closeScan()">✕</button></div>
@@ -288,7 +337,7 @@ addRow();
 /* ===== สแกนสูตรจากรูป ===== */
 const MODEL = "claude-sonnet-5-5";
 const PROMPT = 'นี่คือภาพสูตรอาหารที่เขียนด้วยลายมือหรือพิมพ์ (ภาษาไทย/อังกฤษ) อ่านรายการวัตถุดิบทั้งหมดตามลำดับในภาพ ตอบเป็น JSON อย่างเดียว รูปแบบ {"title":"ชื่อสูตรถ้ามี ไม่มีให้เป็น \\"\\"","items":[{"name":"ชื่อวัตถุดิบ","amount":ตัวเลข หรือ null}]} กติกา: amount คือน้ำหนักเป็นกรัม ถ้าเขียนเป็น กก./kg ให้แปลงเป็นกรัม ถ้าหน่วยไม่ใช่น้ำหนัก (เช่น ช้อนโต๊ะ ฟอง มล.) ให้เขียนหน่วยต่อท้ายในวงเล็บหลังชื่อ และให้ amount เป็นตัวเลขนั้น ห้ามเดา ถ้าอ่านตัวเลขไม่ออกให้ amount เป็น null';
-let src = null, rot = 0, imgEl = null, crop = null, scale = 1, drag = null, scanRows = [], scanTitle = "", cropped = null;
+let origFile = null, origOri = 0, cropUntouched = true, src = null, rot = 0, imgEl = null, crop = null, scale = 1, drag = null, scanRows = [], scanTitle = "", cropped = null;
 const $ = id => document.getElementById(id);
 
 function loadCfg() { try { const c = JSON.parse(localStorage.getItem("scan_cfg") || "{}"); if (c.engine) $("engine").value = c.engine; if (c.key) $("apikey").value = c.key; } catch (e) {} }
@@ -303,6 +352,7 @@ function showStep(n) {
 
 function pickFile(inp) {
   const f = inp.files[0]; inp.value = ""; if (!f) return;
+  origFile = f; origOri = 0; exifOri(f).then(o => { if (origFile === f) origOri = o; });
   const im = new Image();
   im.onload = () => { imgEl = im; rot = 0; setupCrop(); showStep(2); };
   im.onerror = () => alert("เปิดรูปนี้ไม่ได้ ลองรูปอื่นนะครับ");
@@ -326,7 +376,7 @@ function setupCrop() {
   cv.width = Math.round(src.width * scale); cv.height = Math.round(src.height * scale);
   fullCrop();
 }
-function fullCrop() { const cv = $("cv"), m = 8; crop = { x: m, y: m, w: cv.width - 2 * m, h: cv.height - 2 * m }; drawCrop(); }
+function fullCrop() { const cv = $("cv"), m = 8; cropUntouched = true; crop = { x: m, y: m, w: cv.width - 2 * m, h: cv.height - 2 * m }; drawCrop(); }
 function rotate() { rot = (rot + 1) % 4; setupCrop(); }
 
 function drawCrop() {
@@ -352,7 +402,7 @@ function initCropEvents() {
     if (hit >= 0) drag = { t: "c", i: hit };
     else if (p.x > c.x && p.x < c.x + c.w && p.y > c.y && p.y < c.y + c.h) drag = { t: "m", dx: p.x - c.x, dy: p.y - c.y };
     else drag = null;
-    if (drag) cv.setPointerCapture(e.pointerId);
+    if (drag) { cropUntouched = false; cv.setPointerCapture(e.pointerId); }
   };
   cv.onpointermove = e => {
     if (!drag) return;
@@ -402,16 +452,54 @@ async function runScan() {
   }
 }
 
+
+/* อ่านทิศทางภาพจาก EXIF (1 = ปกติ, 0 = ไม่แน่ใจ) เพื่อตัดสินว่าส่งไฟล์ต้นฉบับได้โดยไม่หมุนผิด */
+async function exifOri(f) {
+  if (f.type !== "image/jpeg") return 1;
+  try {
+    const v = new DataView(await f.slice(0, 131072).arrayBuffer());
+    if (v.getUint16(0) !== 0xFFD8) return 1;
+    let o = 2;
+    while (o < v.byteLength - 4) {
+      const m = v.getUint16(o);
+      if (m === 0xFFE1) {
+        if (v.getUint32(o + 4) !== 0x45786966) return 1;
+        const t = o + 10, le = v.getUint16(t) === 0x4949, ifd = t + v.getUint32(t + 4, le), n = v.getUint16(ifd, le);
+        for (let i = 0; i < n; i++) { const e = ifd + 2 + i * 12; if (v.getUint16(e, le) === 0x0112) return v.getUint16(e + 8, le); }
+        return 1;
+      }
+      if ((m & 0xFF00) !== 0xFF00) return 1;
+      o += 2 + v.getUint16(o + 2);
+    }
+    return 1;
+  } catch (e) { return 0; }
+}
+const fileB64 = f => new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result.split(",")[1]); r.readAsDataURL(f); });
+function canvasB64(maxLen) {   // ภาพที่ตัด/หมุน: ความละเอียดเดิม คุณภาพสูงสุด ลดลงเฉพาะเมื่อเกินขนาดที่ API รับ
+  let q = 1, b = cropped.toDataURL("image/jpeg", q).split(",")[1];
+  while (b.length > maxLen && q > 0.5) { q -= 0.05; b = cropped.toDataURL("image/jpeg", q).split(",")[1]; }
+  return b;
+}
+
 async function scanAI(key) {
-  let q = 0.95, b64 = cropped.toDataURL("image/jpeg", q).split(",")[1];
-  while (b64.length > 6.4e6 && q > 0.5) { q -= 0.1; b64 = cropped.toDataURL("image/jpeg", q).split(",")[1]; }   // ไฟล์ต้องไม่เกิน ~5MB
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1500, messages: [{ role: "user", content: [
-      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64 } }, { type: "text", text: PROMPT }] }] })
-  });
-  const j = await r.json();
+  const useOrig = origFile && cropUntouched && rot === 0 && origOri === 1 && /^image\/(jpeg|png|webp|gif)$/.test(origFile.type) && origFile.size <= 4.8e6;
+  let b64, mt;
+  if (useOrig) { b64 = await fileB64(origFile); mt = origFile.type; }   // ส่งไฟล์ต้นฉบับตามเดิม ไม่บีบอัดซ้ำ ขนาดไฟล์และความละเอียดเท่าเดิม
+  else { b64 = canvasB64(6.4e6); mt = "image/jpeg"; }
+  const call = async (data, type) => {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 1500, messages: [{ role: "user", content: [
+        { type: "image", source: { type: "base64", media_type: type, data: data } }, { type: "text", text: PROMPT }] }] })
+    });
+    return { r, j: await r.json() };
+  };
+  let { r, j } = await call(b64, mt);
+  if (!r.ok && useOrig && /image|size|large|exceed|byte/i.test((j.error && j.error.message) || "")) {   // ไฟล์ต้นฉบับใหญ่เกินที่ API รับ → ส่งซ้ำแบบความละเอียดเดิมแต่บีบอัด
+    setSt("ไฟล์ต้นฉบับใหญ่เกินไป กำลังลองส่งแบบบีบอัด...");
+    ({ r, j } = await call(canvasB64(5.0e6), "image/jpeg"));
+  }
   if (!r.ok) throw new Error((j.error && j.error.message) || "เชื่อมต่อ AI ไม่ได้ (ตรวจ API key / อินเทอร์เน็ต)");
   const t = (j.content || []).map(c => c.text || "").join("");
   const o = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1));
@@ -477,6 +565,107 @@ function importScan(replace) {
 }
 initCropEvents(); loadCfg();
 
+/* ===== แท็บ + สต๊อกสินค้า ===== */
+const STKEY = "stock_v1";
+let stock = [], stockAt = 0, es2 = null, stT = null;
+try { const d = JSON.parse(localStorage.getItem(STKEY) || "{}"); stock = d.items || []; stockAt = d.at || 0; } catch (e) {}
+
+function showTab(t) {
+  $("pg-recipe").style.display = t === "recipe" ? "block" : "none";
+  $("pg-stock").style.display = t === "stock" ? "block" : "none";
+  $("tab-recipe").classList.toggle("on", t === "recipe"); $("tab-stock").classList.toggle("on", t === "stock");
+  $("hd-title").textContent = t === "recipe" ? "🍳 ปรับสัดส่วนสูตร" : "📦 เช็คสต๊อก";
+  $("hd-sub").textContent = t === "recipe" ? "พิมพ์เลขช่องเดียว ที่เหลือคำนวณให้ทันที" : "กรอกของคงเหลือ ระบบบอกว่าต้องสั่งอะไรเพิ่ม";
+  window.scrollTo(0, 0);
+}
+
+const sNum = v => { const x = parseFloat(v); return isNaN(x) ? 0 : x; };
+const isLow = it => sNum(it.par) > 0 && sNum(it.qty) < sNum(it.par);
+
+function saveStock(push) {
+  stockAt = Date.now();
+  try { localStorage.setItem(STKEY, JSON.stringify({ items: stock, at: stockAt })); } catch (e) {}
+  if (push) { clearTimeout(stT); stT = setTimeout(pushStock, 600); }
+}
+function pushStock() {
+  if (!es2) return;
+  fetch(stBase() + ".json", { method: "PUT", body: JSON.stringify({ items: stock, at: stockAt }) }).catch(() => {});
+}
+const stBase = () => syncCfg.url + "/teams/" + syncCfg.team + "/stock";
+function connectStock() {
+  if (es2) es2.close();
+  es2 = new EventSource(stBase() + ".json");
+  es2.addEventListener("put", e => {
+    let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+    if (m.path !== "/") return;
+    const d = m.data;
+    if (!d) { if (stock.length) pushStock(); return; }
+    if ((d.at || 0) > stockAt) { stock = d.items || []; stockAt = d.at; try { localStorage.setItem(STKEY, JSON.stringify({ items: stock, at: stockAt })); } catch (x) {} renderStock(); toast("สต๊อกอัปเดตจากเครื่องอื่นแล้ว"); }
+    else if (stockAt > (d.at || 0)) pushStock();
+  });
+}
+
+function renderStock() {
+  const box = $("stlist");
+  box.innerHTML = stock.length ? stock.map((it, i) => `<div class="srow${isLow(it) ? " low" : ""}" id="sr${i}">
+    <input value="${esc(it.name || "")}" placeholder="ชื่อวัตถุดิบ" oninput="stEdit(${i},'name',this.value)">
+    <input class="q" type="number" inputmode="decimal" step="any" value="${it.qty === "" || it.qty == null ? "" : it.qty}" placeholder="0" oninput="stEdit(${i},'qty',this.value)">
+    <input class="p" type="number" inputmode="decimal" step="any" value="${it.par === "" || it.par == null ? "" : it.par}" placeholder="0" oninput="stEdit(${i},'par',this.value)">
+    <input list="units" value="${esc(it.unit || "")}" placeholder="หน่วย" oninput="stEdit(${i},'unit',this.value)">
+    <button class="del" onclick="delStock(${i})">✕</button></div>`).join("")
+    : '<div class="empty">ยังไม่มีรายการ กด "+ เพิ่มรายการ" หรือ "ดึงชื่อจากสูตร"</div>';
+  renderOrder();
+}
+function stEdit(i, k, v) {
+  stock[i][k] = (k === "qty" || k === "par") ? (v === "" ? "" : parseFloat(v)) : v;
+  const r = $("sr" + i); if (r) r.classList.toggle("low", isLow(stock[i]));
+  saveStock(true); renderOrder();
+}
+function addStock() { stock.push({ name: "", qty: "", par: "", unit: "" }); saveStock(true); renderStock(); }
+function delStock(i) { stock.splice(i, 1); saveStock(true); renderStock(); }
+
+function importFromRecipes() {
+  const have = new Set(stock.map(x => (x.name || "").trim()));
+  let n = 0;
+  Object.values(getSaved()).forEach(d => (Array.isArray(d) ? d : d.rows || []).forEach(r => {
+    const nm = (r.name || "").trim();
+    if (nm && !have.has(nm)) { have.add(nm); stock.push({ name: nm, qty: "", par: "", unit: "กรัม" }); n++; }
+  }));
+  if (!n) return toast("ไม่มีวัตถุดิบใหม่ให้ดึงจากสูตร");
+  saveStock(true); renderStock(); toast("เพิ่ม " + n + " รายการจากสูตรแล้ว");
+}
+
+function orderList() { return stock.map((it, i) => ({ it, i })).filter(x => isLow(x.it) && (x.it.name || "").trim()); }
+function renderOrder() {
+  const l = orderList();
+  $("ordn").textContent = l.length ? "(" + l.length + " รายการ)" : "";
+  $("orderlist").innerHTML = l.length ? l.map(x => `<div class="ord"><div>${esc(x.it.name)}<small>เหลือ ${fmt(sNum(x.it.qty))} / ควรมี ${fmt(sNum(x.it.par))} ${esc(x.it.unit || "")}</small></div>
+    <b>สั่ง ${fmt(sNum(x.it.par) - sNum(x.it.qty))} ${esc(x.it.unit || "")}</b><button onclick="received(${x.i})">รับของแล้ว</button></div>`).join("")
+    : '<div class="okbox">✅ ของพอทุกรายการ ยังไม่ต้องสั่งเพิ่ม</div>';
+}
+function received(i) { stock[i].qty = stock[i].par; saveStock(true); renderStock(); }
+
+function orderText() {
+  const l = orderList();
+  if (!l.length) return "";
+  return "รายการสั่งของ " + new Date().toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }) + "\n" +
+    l.map(x => "- " + x.it.name.trim() + " " + fmt(sNum(x.it.par) - sNum(x.it.qty)) + " " + (x.it.unit || "")).join("\n");
+}
+function copyOrder() {
+  const t = orderText(); if (!t) return toast("ยังไม่มีรายการที่ต้องสั่ง");
+  const done = () => toast("คัดลอกรายการสั่งแล้ว");
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, () => fallbackCopy(t, done));
+  else fallbackCopy(t, done);
+}
+function fallbackCopy(t, done) { const a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand("copy"); done(); } catch (e) { toast("คัดลอกไม่สำเร็จ"); } a.remove(); }
+function shareOrder() {
+  const t = orderText(); if (!t) return toast("ยังไม่มีรายการที่ต้องสั่ง");
+  if (navigator.share) navigator.share({ text: t }).catch(() => {}); else copyOrder();
+}
+renderStock();
+
+if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
+
 /* ===== ซิงค์ทีม (Firebase Realtime Database ผ่าน REST + SSE) ===== */
 let es = null, syncCfg = { url: "", team: "" }, remote = {};
 const keyOf = n => "r" + btoa(unescape(encodeURIComponent(n))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -504,9 +693,11 @@ function connectSync() {
   es.onerror = () => setSync("🔴 หลุดการเชื่อมต่อ กำลังลองใหม่...");
   es.addEventListener("put", e => { try { onPut(JSON.parse(e.data)); } catch (x) {} });
   es.addEventListener("cancel", () => { setSync("🔴 ไม่มีสิทธิ์เข้าถึง ตรวจสอบ Rules ใน Firebase"); disconnectSync(true); });
+  connectStock();
 }
 function disconnectSync(keep) {
   if (es) { es.close(); es = null; }
+  if (es2) { es2.close(); es2 = null; }
   if (!keep) { try { localStorage.removeItem("sync_cfg"); } catch (e) {} setSync("⚪ ไม่ได้ซิงค์ทีม"); }
 }
 
